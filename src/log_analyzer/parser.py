@@ -33,7 +33,14 @@ class ParseResult:
 def parse_timestamp(value: str) -> pd.Timestamp:
     """Interpret ISO dates in UTC; convert explicit offsets to UTC."""
     try:
-        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        normalized = value.strip().replace("Z", "+00:00")
+        # Python 3.10 requires a dot and exactly 3 or 6 fractional digits.
+        normalized = re.sub(
+            r"(\d{2}:\d{2}:\d{2})[.,](\d{1,6})(?!\d)",
+            lambda match: match[1] + "." + match[2].ljust(6, "0"),
+            normalized,
+        )
+        parsed = datetime.fromisoformat(normalized)
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)
         stamp = pd.Timestamp(parsed.astimezone(timezone.utc))

@@ -32,6 +32,29 @@ def test_csv_bundle_contains_filtered_events_and_statistics(example_dir, tmp_pat
     assert output.with_name("filtered.anomalies.csv").is_file()
 
 
+def test_fractional_timestamp_filters_and_strict_input(tmp_path):
+    source = tmp_path / "fractional.log"
+    source.write_text(
+        "2026-09-30 12:00:00.1233Z INFO Before\n"
+        "2026-09-30 14:00:00,1234+02:00 INFO Selected\n"
+        "2026-09-30 12:00:00.1235Z INFO After\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "report.json"
+    assert main([
+        str(source), "--strict", "--since", "2026-09-30T14:00:00,1234+02:00",
+        "--until", "2026-09-30T06:30:00.12340-05:30", "--output", str(output),
+    ]) == 0
+
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["summary"]["total_events"] == 1
+    assert report["summary"]["time_range"] == {
+        "start": "2026-09-30T12:00:00.123400+00:00",
+        "end": "2026-09-30T12:00:00.123400+00:00",
+    }
+    assert report["input"]["rejected_records"] == 0
+
+
 @pytest.mark.parametrize("strict", [False, True])
 def test_invalid_records_are_reported_and_strict_mode_fails(tmp_path, strict, capsys):
     source = tmp_path / "input.log"
